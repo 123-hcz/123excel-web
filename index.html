@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>123Excel II - Web (Pure JS)</title>
+
+    <!-- FINAL CDN FIX: Using faster and more reliable CDNs -->
+    <!-- AG-Grid -->
+    <script src="https://unpkg.com/ag-grid-community/dist/ag-grid-community.min.js"></script>
+    <!-- SheetJS (xlsx) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <!-- Our App's Styles and Scripts -->
+    <link rel="stylesheet" href="style.css">
+    <script defer src="logic.js"></script>
+    <script defer src="main.js"></script>
+
+</head>
+<body>
+    <!-- FINAL UI FIX: Homepage is now just two large, simple buttons -->
+    <h3>---------123Excel web beta<a href="https://github.com/123-hcz/ZjangDataViewer">开源地址</a></h3>
+    <div id="open-file-page" class="page">
+        <div class="open-file-left-panel">
+             <button id="open-file-button-img" class="image-button" title="打开一个现有文件">
+                <img src="./images/classic/open.png" alt="Open" style="width: 500px; height: 250px;">
+             </button>
+             <!-- <h3 style="margin-top: 10px;">打开文件</h3> -->
+        </div>
+        <div class="open-file-left-panel">
+             <button id="new-file-button-img" class="image-button" title="新建一个空白 XLSX 文件">
+                <img src="./images/classic/new.png" alt="New" style="width: 500px; height: 250px;">
+             </button>
+             <!-- <h3 style="margin-top: 10px;">新建文件</h3> -->
+        </div>
+        <!-- Hidden file input remains for functionality -->
+        <input type="file" id="file-input" accept=".xlsx,.xml,.json" class="hidden">
+    </div>
+
+    <!-- The rest of the editor page remains unchanged -->
+    <div id="editor-page" class="page hidden">
+        <div class="toolbar-container">
+            <div class="main-toolbar">
+                <div class="toolbar-row">
+                    <button id="tag-file">文件</button>
+                    <button id="tag-jisuan">运算</button>
+                    <button id="tag-autom" disabled>自动化</button>
+                    <button id="tag-ai">AI</button>
+                </div>
+                <div id="file-tools" class="toolbar-row">
+                    <button id="save-button" class="image-button" title="保存文件"><img src="./images/classic/save.png"></button>
+                </div>
+                 <div id="jisuan-tools" class="toolbar-row hidden">
+                    <button id="get-max-button" class="image-button" title="最大值"><img src="./images/classic/max.png"></button>
+                    <button id="get-min-button" class="image-button" title="最小值"><img src="./images/classic/min.png"></button>
+                    <button id="get-avg-button" class="image-button" title="平均值"><img src="./images/classic/avg.png"></button>
+                 </div>
+                <div class="toolbar-row">
+                    <input type="text" id="input-fx" class="input-fx" placeholder="函数功能待开发">
+                    <select id="sheet-choice" class="hidden"></select>
+                </div>
+            </div>
+            <div class="other-tools">
+                <button id="exit-button" class="image-button" title="返回主页"><img src="./images/classic/exit.png"></button>
+            </div>
+        </div>
+        <div class="grid-wrapper">
+            <div id="main-grid" class="ag-theme-quartz"></div>
+        </div>
+        <div id="status-bar" class="status-bar">
+            选择行来查看统计信息
+        </div>
+    </div>
+    
+    <div id="ai-chat-modal" class="hidden">
+        <div class="ai-chat-header">
+            <span>AI 助手</span>
+            <button id="ai-chat-close-button" class="close-button">×</button>
+        </div>
+        <div id="ai-chat-history" class="ai-chat-history"></div>
+        <div class="ai-chat-input-area">
+            <input type="text" id="ai-chat-input" placeholder="和AI聊聊或让它修改表格...">
+            <button id="ai-chat-send-button">发送</button>
+        </div>
+    </div>
+</body>
+</html>
