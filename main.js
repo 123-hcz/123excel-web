@@ -15,9 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // --- INITIALIZATION ---
     function initialize() {
-        // IMPORTANT: Create the grid first, so `gridApi` is defined.
         initializeGrid(); 
-        // Then, set up all event listeners.
         setupEventListeners();
         showPage('openFile');
     }
@@ -81,7 +79,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function setupEventListeners() {
         document.getElementById('open-file-button-img').addEventListener('click', () => fileInput.click());
         document.getElementById('new-file-button-img').addEventListener('click', () => createNewFile('xlsx'));
-        fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+        fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files));
         document.getElementById('save-button').addEventListener('click', saveFile);
         document.getElementById('exit-button').addEventListener('click', handleExit);
         document.getElementById('tag-file').addEventListener('click', () => switchTab('file'));
@@ -285,12 +283,23 @@ document.addEventListener("DOMContentLoaded", () => {
             (fullResponse) => {
                 aiChatSendButton.disabled = false;
                 aiChatInput.focus();
-                const xmlMatch = fullResponse.match(/```xml\s*([\s\S]+?)\s*```/);
-                if (xmlMatch && xmlMatch[1]) {
-                    try {
-                        const newData = logic.xmlStringToData(xmlMatch[1]);
-                        updateGrid(newData, currentFile.name);
-                    } catch(e) { console.error("AI XML parse error", e); }
+
+                // FINAL AI FIX: Find the LAST ```xml block.
+                const allXmlBlocks = fullResponse.match(/```xml\s*[\s\S]+?\s*```/g);
+                if (allXmlBlocks && allXmlBlocks.length > 0) {
+                    const lastBlock = allXmlBlocks[allXmlBlocks.length - 1];
+                    const contentMatch = lastBlock.match(/```xml\s*([\s\S]+?)\s*```/);
+                    
+                    if (contentMatch && contentMatch[1]) {
+                        try {
+                            const newData = logic.xmlStringToData(contentMatch[1]);
+                            updateGrid(newData, currentFile.name);
+                            renderSystemMessage('[提示]: 已根据AI的回复更新表格内容。');
+                        } catch(e) {
+                            console.error("AI XML parse error", e);
+                            renderSystemMessage('[错误]: AI返回的XML格式无效。');
+                        }
+                    }
                 }
             }
         );
@@ -310,6 +319,14 @@ document.addEventListener("DOMContentLoaded", () => {
         return lastMessageElement;
     }
 
+    function renderSystemMessage(message) {
+        const p = document.createElement('p');
+        p.className = 'system-message';
+        p.textContent = message;
+        aiChatHistoryDiv.appendChild(p);
+        aiChatHistoryDiv.scrollTop = aiChatHistoryDiv.scrollHeight;
+    }
+    
     // --- UTILITY FUNCTIONS ---
     function getGridData() {
         const data = [];
