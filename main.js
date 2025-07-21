@@ -4,10 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let gridApi;
 
     // --- DOM ELEMENT REFERENCES ---
-    const pages = {
-        openFile: document.getElementById('open-file-page'),
-        editor: document.getElementById('editor-page'),
-    };
+    const pages = { openFile: document.getElementById('open-file-page'), editor: document.getElementById('editor-page') };
     const fileInput = document.getElementById('file-input');
     const statusBar = document.getElementById('status-bar');
     const aiChatModal = document.getElementById('ai-chat-modal');
@@ -15,11 +12,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const aiChatInput = document.getElementById('ai-chat-input');
     const aiChatSendButton = document.getElementById('ai-chat-send-button');
     const aiChatHistory = [];
-
+    
     // --- INITIALIZATION ---
     function initialize() {
+        // IMPORTANT: Create the grid first, so `gridApi` is defined.
+        initializeGrid(); 
+        // Then, set up all event listeners.
         setupEventListeners();
-        initializeGrid();
         showPage('openFile');
     }
 
@@ -29,20 +28,14 @@ document.addEventListener("DOMContentLoaded", () => {
         if (pages[pageName]) pages[pageName].classList.remove('hidden');
     }
 
-    // --- GRID SETUP (AG-Grid) ---
+    // --- GRID SETUP ---
     function initializeGrid() {
-        // FINAL CONFIRMED FIX: This configuration is 100% correct for the latest AG-Grid Community version.
         const gridOptions = {
             rowData: [],
             columnDefs: [],
             defaultColDef: { editable: true, resizable: true, sortable: true, filter: true },
-            
-            // This is the modern, correct way to configure multi-row selection.
             rowSelection: 'multiple',
-            // This makes selection intuitive: click a row to select/deselect it without needing Ctrl/Cmd.
             rowMultiSelectWithClick: true,
-            
-            // The correct event listener for row selection changes.
             onSelectionChanged: updateStatusBar,
         };
         const gridDiv = document.getElementById('main-grid');
@@ -51,8 +44,8 @@ document.addEventListener("DOMContentLoaded", () => {
     
     function updateGrid(data, fileName) {
         currentFile.name = fileName;
-        const minRows = 50;
-        const minCols = 26; // A-Z
+        currentFile.data = data;
+        const minRows = 50, minCols = 26;
         const dataRows = data.length;
         const dataCols = data.length > 0 ? Math.max(...data.map(row => (row ? row.length : 0))) : 0;
         const finalRows = Math.max(dataRows, minRows);
@@ -65,17 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
 
         const columnDefs = [
-            { 
-                headerName: '#', 
-                width: 90, 
-                pinned: 'left', 
-                editable: false, 
-                valueGetter: 'node.rowIndex + 1', 
-                cellClass: 'row-number-cell',
-                // Add checkboxes for intuitive multi-selection
-                headerCheckboxSelection: true,
-                checkboxSelection: true,
-            },
+            { headerName: '#', width: 90, pinned: 'left', editable: false, valueGetter: 'node.rowIndex + 1', cellClass: 'row-number-cell', headerCheckboxSelection: true, checkboxSelection: true },
             ...Array.from({ length: finalCols }, (_, i) => ({
                 headerName: String.fromCharCode(65 + i), field: i.toString(),
             }))
@@ -90,10 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
         gridApi.setGridOption('columnDefs', columnDefs);
         gridApi.setGridOption('rowData', rowData);
         document.title = `123Excel II - ${fileName}`;
+        updateItemChoice();
         showPage('editor');
     }
 
-    // --- EVENT LISTENERS ---
+    // --- EVENT LISTENERS SETUP ---
     function setupEventListeners() {
         document.getElementById('open-file-button-img').addEventListener('click', () => fileInput.click());
         document.getElementById('new-file-button-img').addEventListener('click', () => createNewFile('xlsx'));
@@ -102,6 +86,13 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('exit-button').addEventListener('click', handleExit);
         document.getElementById('tag-file').addEventListener('click', () => switchTab('file'));
         document.getElementById('tag-jisuan').addEventListener('click', () => switchTab('jisuan'));
+        
+        document.getElementById('item-row-input').addEventListener('input', updateItemChoice);
+        document.getElementById('get-max-button').addEventListener('click', () => performCalculation('max'));
+        document.getElementById('get-min-button').addEventListener('click', () => performCalculation('min'));
+        document.getElementById('get-avg-button').addEventListener('click', () => performCalculation('avg'));
+        document.getElementById('get-customize-button').addEventListener('click', () => performCalculation('custom'));
+
         document.getElementById('tag-ai').addEventListener('click', () => showAiChat(true));
         document.getElementById('ai-chat-close-button').addEventListener('click', () => showAiChat(false));
         document.getElementById('ai-chat-send-button').addEventListener('click', sendAiMessage);
@@ -182,10 +173,63 @@ document.addEventListener("DOMContentLoaded", () => {
         updateGrid([], currentFile.name);
     }
     
-    // FINAL BUTTON FIX: This correctly toggles the visibility of the toolbars.
     function switchTab(tabName) {
         document.getElementById('file-tools').classList.toggle('hidden', tabName !== 'file');
         document.getElementById('jisuan-tools').classList.toggle('hidden', tabName !== 'jisuan');
+        document.getElementById('jisuan-inputs').classList.toggle('hidden', tabName !== 'jisuan');
+    }
+
+    // --- CALCULATION LOGIC ---
+    function updateItemChoice() {
+        const itemRowInput = document.getElementById('item-row-input');
+        const itemChoice = document.getElementById('item-choice');
+        const items = logic.getItems(currentFile.data, itemRowInput.value);
+        
+        itemChoice.innerHTML = '';
+        items.forEach(item => {
+            if (item) {
+                const option = document.createElement('option');
+                option.value = item;
+                option.textContent = item;
+                itemChoice.appendChild(option);
+            }
+        });
+    }
+
+    function performCalculation(type) {
+        try {
+            const itemRow = document.getElementById('item-row-input').value;
+            const nameCol = document.getElementById('name-col-input').value;
+            const itemName = document.getElementById('item-choice').value;
+
+            if (!itemRow || !nameCol || !itemName) {
+                alert("请确保'项目行'、'名称列'已填写，并已选择一个项目。");
+                return;
+            }
+
+            const names = logic.getNames(currentFile.data, itemRow, nameCol);
+            const values = logic.getValue(currentFile.data, itemRow, nameCol, itemName);
+            const nameValueDict = logic.getNameValueDict(names, values);
+
+            let result;
+            if (type === 'max') {
+                const maxVal = logic.getMaxValue(nameValueDict);
+                result = logic.getMaxNames(nameValueDict, maxVal);
+            } else if (type === 'min') {
+                const minVal = logic.getMinValue(nameValueDict);
+                result = logic.getMinNames(nameValueDict, minVal);
+            } else if (type === 'avg') {
+                result = logic.getAverageValue(nameValueDict);
+            } else if (type === 'custom') {
+                const rule = document.getElementById('customize-input').value;
+                if (!rule) { alert("自定义准则不能为空。"); return; }
+                result = logic.getCustomizeValue(nameValueDict, rule);
+            }
+            
+            alert(result.join('\n'));
+        } catch (e) {
+            alert(`计算时出错: ${e.message}`);
+        }
     }
 
     // --- STATUS BAR LOGIC ---

@@ -5,59 +5,68 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>123Excel II - Web (Pure JS)</title>
 
-    <!-- FINAL CDN FIX: Using faster and more reliable CDNs -->
-    <!-- AG-Grid -->
+    <!-- Using faster and more reliable CDNs -->
     <script src="https://unpkg.com/ag-grid-community/dist/ag-grid-community.min.js"></script>
-    <!-- SheetJS (xlsx) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <!-- Our App's Styles and Scripts -->
     <link rel="stylesheet" href="style.css">
     <script defer src="logic.js"></script>
     <script defer src="main.js"></script>
-
 </head>
 <body>
-    <!-- FINAL UI FIX: Homepage is now just two large, simple buttons -->
-    <h3>---------123Excel web beta<a href="https://github.com/123-hcz/ZjangDataViewer">开源地址</a></h3>
+    <!-- Homepage UI -->
     <div id="open-file-page" class="page">
+        <h3>123Excel web v1.0.0-beta.2<a href="https://github.com/123-hcz/ZjangDataViewer">开源地址</a></h3>
         <div class="open-file-left-panel">
-             <button id="open-file-button-img" class="image-button" title="打开一个现有文件">
-                <img src="./images/classic/open.png" alt="Open" style="width: 500px; height: 250px;">
-             </button>
-             <!-- <h3 style="margin-top: 10px;">打开文件</h3> -->
+            <button id="open-file-button-img" class="image-button" title="打开一个现有文件">
+                <img src="./images/classic/open.png" alt="Open" style="width: 700px; height: 200px;">
+            </button>
+            <!-- <h3 style="margin-top: 10px;">打开文件</h3> -->
         </div>
+        <!-- <div class="open-file-right-panel"> -->
         <div class="open-file-left-panel">
              <button id="new-file-button-img" class="image-button" title="新建一个空白 XLSX 文件">
-                <img src="./images/classic/new.png" alt="New" style="width: 500px; height: 250px;">
+                <img src="./images/classic/new.png" alt="New" style="width: 700px; height: 200px;">
              </button>
              <!-- <h3 style="margin-top: 10px;">新建文件</h3> -->
         </div>
-        <!-- Hidden file input remains for functionality -->
         <input type="file" id="file-input" accept=".xlsx,.xml,.json" class="hidden">
     </div>
 
-    <!-- The rest of the editor page remains unchanged -->
+    <!-- Editor Page UI -->
     <div id="editor-page" class="page hidden">
         <div class="toolbar-container">
             <div class="main-toolbar">
+                <!-- Toolbar Tabs -->
                 <div class="toolbar-row">
                     <button id="tag-file">文件</button>
                     <button id="tag-jisuan">运算</button>
-                    <button id="tag-autom" disabled>自动化</button>
                     <button id="tag-ai">AI</button>
                 </div>
+                <!-- File Tools Toolbar -->
                 <div id="file-tools" class="toolbar-row">
                     <button id="save-button" class="image-button" title="保存文件"><img src="./images/classic/save.png"></button>
                 </div>
+                <!-- Calculation Tools Toolbar (Initially Hidden) -->
                  <div id="jisuan-tools" class="toolbar-row hidden">
                     <button id="get-max-button" class="image-button" title="最大值"><img src="./images/classic/max.png"></button>
                     <button id="get-min-button" class="image-button" title="最小值"><img src="./images/classic/min.png"></button>
                     <button id="get-avg-button" class="image-button" title="平均值"><img src="./images/classic/avg.png"></button>
-                 </div>
+                    <button id="get-customize-button" class="image-button" title="自定义"><img src="./images/classic/customize.png"></button>
+                    <input type="text" id="customize-input" placeholder="输入自定义准则: x > 10" class="input-fx">
+                </div>
+                <!-- Shared Input Toolbar -->
                 <div class="toolbar-row">
-                    <input type="text" id="input-fx" class="input-fx" placeholder="函数功能待开发">
-                    <select id="sheet-choice" class="hidden"></select>
+                    <!-- Calculation Inputs (Initially Hidden, part of 'jisuan' tab) -->
+                    <div id="jisuan-inputs" class="toolbar-row hidden">
+                         <label for="name-col-input">名称列:</label>
+                         <input type="text" id="name-col-input" size="5">
+                         <label for="item-row-input">项目行:</label>
+                         <input type="text" id="item-row-input" size="5" value="1">
+                         <label for="item-choice">项目:</label>
+                         <select id="item-choice"></select>
+                    </div>
                 </div>
             </div>
             <div class="other-tools">
@@ -72,6 +81,7 @@
         </div>
     </div>
     
+    <!-- AI Chat Modal -->
     <div id="ai-chat-modal" class="hidden">
         <div class="ai-chat-header">
             <span>AI 助手</span>
