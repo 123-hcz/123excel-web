@@ -22,6 +22,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const aiPreviewCancelButton = document.getElementById('ai-preview-cancel-button');
     const aiPreviewCloseButton = document.getElementById('ai-preview-close-button');
     
+    // Custom Dialog Modal Elements
+    const customDialogModal = document.getElementById('custom-dialog-modal');
+    const customDialogTitle = document.getElementById('custom-dialog-title');
+    const customDialogMessage = document.getElementById('custom-dialog-message');
+    const customDialogInput = document.getElementById('custom-dialog-input');
+    const customDialogConfirmButton = document.getElementById('custom-dialog-confirm-button');
+    const customDialogCancelButton = document.getElementById('custom-dialog-cancel-button');
+    
     // --- INITIALIZATION ---
     function initialize() {
         initializeGrid(); 
@@ -127,8 +135,9 @@ document.addEventListener("DOMContentLoaded", () => {
         aiPreviewCloseButton.addEventListener('click', hideAiPreview);
     }
 
-    function handleExit() {
-        if (confirm("您确定要返回主页吗？未保存的更改将会丢失。")) {
+    async function handleExit() {
+        const confirmed = await showCustomDialog('确认', '您确定要返回主页吗？未保存的更改将会丢失。', 'confirm');
+        if (confirmed) {
             gridApi.setGridOption('rowData', []);
             gridApi.setGridOption('columnDefs', []);
             currentFile = { name: "Untitled.xlsx", type: "xlsx", data: [] };
@@ -139,13 +148,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- FILE HANDLING ---
-    function handleFileSelect(files) {
+    async function handleFileSelect(files) {
         if (!files || files.length === 0) return;
         const file = files[0]; // Get the first file from the FileList
         
         // Add safety checks
         if (!file || !file.name) {
-            alert("无法读取文件信息");
+            await showCustomAlert('错误', '无法读取文件信息');
             return;
         }
         
@@ -153,26 +162,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const fileExt = file.name.split('.').pop().toLowerCase();
         currentFile.type = fileExt;
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const content = e.target.result;
             let data;
             try {
                 if (fileExt === 'xlsx') data = logic.readExcelFromBuffer(content);
                 else if (fileExt === 'xml') data = logic.readXmlFromString(content);
                 else if (fileExt === 'json') data = logic.readJsonFromString(content);
-                else { alert("不支持的文件类型"); return; }
+                else { await showCustomAlert('错误', '不支持的文件类型'); return; }
                 updateGrid(data, currentFile.name);
-            } catch (err) { alert(`读取文件失败: ${err.message}`); }
+            } catch (err) { await showCustomAlert('错误', `读取文件失败: ${err.message}`); }
         };
         if (fileExt === 'xlsx') reader.readAsArrayBuffer(file);
         else reader.readAsText(file);
     }
     
-    function saveFile() {
-        const newType = prompt("请输入要保存的文件类型 (xlsx, xml, json):", currentFile.type);
+    async function saveFile() {
+        const newType = await showCustomPrompt('保存文件', '请输入要保存的文件类型 (xlsx, xml, json):', currentFile.type);
         if (newType === null) return;
         if (!['xlsx', 'xml', 'json'].includes(newType.toLowerCase())) {
-            alert("无效的文件类型。"); return;
+            await showCustomAlert('错误', '无效的文件类型。'); return;
         }
         currentFile.type = newType.toLowerCase();
         const baseName = currentFile.name.split('.').slice(0, -1).join('.') || 'Untitled';
@@ -255,14 +264,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function performCalculation(type) {
+    async function performCalculation(type) {
         try {
             const itemRow = document.getElementById('item-row-input').value;
             const nameCol = document.getElementById('name-col-input').value;
             const itemName = document.getElementById('item-choice').value;
 
             if (!itemRow || !nameCol || !itemName) {
-                alert("请确保'项目行'、'名称列'已填写，并已选择一个项目。");
+                await showCustomAlert('错误', "请确保'项目行'、'名称列'已填写，并已选择一个项目。");
                 return;
             }
 
@@ -281,13 +290,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 result = logic.getAverageValue(nameValueDict);
             } else if (type === 'custom') {
                 const rule = document.getElementById('customize-input').value;
-                if (!rule) { alert("自定义准则不能为空。"); return; }
+                if (!rule) { await showCustomAlert('错误', '自定义准则不能为空。'); return; }
                 result = logic.getCustomizeValue(nameValueDict, rule);
             }
             
-            alert(result.join('\n'));
+            await showCustomAlert('计算结果', result.join('\n'));
         } catch (e) {
-            alert(`计算时出错: ${e.message}`);
+            await showCustomAlert('错误', `计算时出错: ${e.message}`);
         }
     }
 
@@ -330,7 +339,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- AI CHAT LOGIC ---
-    function showAiChat(show) { aiChatModal.classList.toggle('hidden', !show); }
+    function showAiChat(show) { 
+        aiChatModal.classList.toggle('hidden', !show); 
+        
+        // Show notification when AI chat is opened
+        if (show && isFirstAiResponse) {
+            renderSystemMessage('[提示]: 欢迎使用AI助手！第一次使用可能需要排队，请耐心等待。');
+        }
+    }
     
     // --- AI PREVIEW MODAL LOGIC ---
     function showAiPreview(data) {
@@ -386,16 +402,36 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Track if this is the first AI response
     let isFirstAiResponse = true;
+    // Track if AI request is in progress
+    let isAiRequestInProgress = false;
+    
+    // Abort controller for AI requests
+    let aiAbortController = null;
     
     async function sendAiMessage() {
+        // If AI request is already in progress, stop it
+        if (isAiRequestInProgress) {
+            if (aiAbortController) {
+                aiAbortController.abort();
+            }
+            return;
+        }
+        
         const userMessage = aiChatInput.value.trim();
         if (!userMessage) return;
         aiChatInput.value = '';
-        aiChatSendButton.disabled = true;
+        
+        // Set AI request as in progress
+        isAiRequestInProgress = true;
+        aiAbortController = new AbortController();
+        
+        // Change send button to stop button
+        aiChatSendButton.textContent = '停止回答';
+        aiChatSendButton.disabled = false;
         
         // Add the waiting message for the first AI response
         if (isFirstAiResponse) {
-            renderSystemMessage('[提示]: AI回答可能需要排队一段时间，请耐心等待');
+            renderSystemMessage('[提示]: 使用AI需要排队，请耐心等待');
             isFirstAiResponse = false;
         }
         
@@ -407,43 +443,90 @@ document.addEventListener("DOMContentLoaded", () => {
         const gridData = getGridData();
         const gridDataXml = logic.dataToXmlString(gridData);
         
-        await logic.getAiResponse(
-            aiChatHistory.slice(0, -1),
-            gridDataXml,
-            (chunk) => {
-                aiChatHistory[aiMessageIndex].content += chunk;
-                if (aiMessageElement) aiMessageElement.textContent = `AI:\n${aiChatHistory[aiMessageIndex].content}`;
-                aiChatHistoryDiv.scrollTop = aiChatHistoryDiv.scrollHeight;
-            },
-            (fullResponse) => {
-                aiChatSendButton.disabled = false;
-                aiChatInput.focus();
+        try {
+            await logic.getAiResponse(
+                aiChatHistory.slice(0, -1),
+                gridDataXml,
+                (chunk) => {
+                    // Check if the request was aborted
+                    if (aiAbortController.signal.aborted) {
+                        // Reset button state even if aborted
+                        isAiRequestInProgress = false;
+                        aiAbortController = null;
+                        aiChatSendButton.textContent = '发送';
+                        aiChatSendButton.disabled = false;
+                        aiChatInput.focus();
+                        return;
+                    }
+                    
+                    aiChatHistory[aiMessageIndex].content += chunk;
+                    if (aiMessageElement) aiMessageElement.textContent = `AI:\n${aiChatHistory[aiMessageIndex].content}`;
+                    aiChatHistoryDiv.scrollTop = aiChatHistoryDiv.scrollHeight;
+                },
+                (fullResponse) => {
+                    // Check if the request was aborted
+                    if (aiAbortController.signal.aborted) {
+                        // Reset button state even if aborted
+                        isAiRequestInProgress = false;
+                        aiAbortController = null;
+                        aiChatSendButton.textContent = '发送';
+                        aiChatSendButton.disabled = false;
+                        aiChatInput.focus();
+                        return;
+                    }
+                    
+                    // Reset AI request state
+                    isAiRequestInProgress = false;
+                    aiAbortController = null;
+                    
+                    // Change stop button back to send button
+                    aiChatSendButton.textContent = '发送';
+                    aiChatSendButton.disabled = false;
+                    aiChatInput.focus();
 
-                // Find all ```xml blocks and get the last complete one
-                const xmlBlockRegex = /```xml\s*([\s\S]*?)\s*```/g;
-                let match;
-                let lastValidXmlContent = null;
-                
-                // Iterate through all matches to find the last valid one
-                while ((match = xmlBlockRegex.exec(fullResponse)) !== null) {
-                    if (match[1]) {
-                        lastValidXmlContent = match[1];
+                    // Find all ```xml blocks and get the last complete one
+                    const xmlBlockRegex = /```xml\s*([\s\S]*?)\s*```/g;
+                    let match;
+                    let lastValidXmlContent = null;
+                    
+                    // Iterate through all matches to find the last valid one
+                    while ((match = xmlBlockRegex.exec(fullResponse)) !== null) {
+                        if (match[1]) {
+                            lastValidXmlContent = match[1];
+                        }
                     }
-                }
-                
-                if (lastValidXmlContent) {
-                    try {
-                        const newData = logic.xmlStringToData(lastValidXmlContent);
-                        // Store the data and show preview instead of directly updating the grid
-                        pendingAiData = newData;
-                        showAiPreview(newData);
-                    } catch(e) {
-                        console.error("AI XML parse error", e);
-                        renderSystemMessage('[错误]: AI返回的XML格式无效。');
+                    
+                    if (lastValidXmlContent) {
+                        try {
+                            const newData = logic.xmlStringToData(lastValidXmlContent);
+                            // Store the data and show preview instead of directly updating the grid
+                            pendingAiData = newData;
+                            showAiPreview(newData);
+                        } catch(e) {
+                            console.error("AI XML parse error", e);
+                            renderSystemMessage('[错误]: AI返回的XML格式无效。');
+                        }
                     }
-                }
+                },
+                aiAbortController.signal // Pass the abort signal to the AI request
+            );
+        } catch (error) {
+            // Handle abort error separately
+            if (error.name === 'AbortError') {
+                renderSystemMessage('[提示]: AI回答已停止');
+            } else {
+                renderSystemMessage(`[错误]: ${error.message}`);
             }
-        );
+            
+            // Reset AI request state
+            isAiRequestInProgress = false;
+            aiAbortController = null;
+            
+            // Change stop button back to send button
+            aiChatSendButton.textContent = '发送';
+            aiChatSendButton.disabled = false;
+            aiChatInput.focus();
+        }
     }
 
     function renderAiHistory() {
@@ -497,6 +580,59 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- START THE APP ---
     initialize();
 });
+
+// --- CUSTOM DIALOG FUNCTIONS ---
+function showCustomDialog(title, message, type = 'alert', defaultValue = '') {
+    return new Promise((resolve) => {
+        // Get dialog elements
+        const customDialogModal = document.getElementById('custom-dialog-modal');
+        const customDialogTitle = document.getElementById('custom-dialog-title');
+        const customDialogMessage = document.getElementById('custom-dialog-message');
+        const customDialogInput = document.getElementById('custom-dialog-input');
+        const customDialogConfirmButton = document.getElementById('custom-dialog-confirm-button');
+        const customDialogCancelButton = document.getElementById('custom-dialog-cancel-button');
+        
+        // Set dialog title and message
+        customDialogTitle.textContent = title;
+        customDialogMessage.textContent = message;
+        
+        // Handle different dialog types
+        if (type === 'prompt') {
+            customDialogInput.classList.remove('hidden');
+            customDialogInput.value = defaultValue;
+            customDialogInput.focus();
+        } else {
+            customDialogInput.classList.add('hidden');
+        }
+        
+        // Show dialog
+        customDialogModal.classList.remove('hidden');
+        
+        // Handle confirm button
+        customDialogConfirmButton.onclick = () => {
+            customDialogModal.classList.add('hidden');
+            if (type === 'prompt') {
+                resolve(customDialogInput.value);
+            } else {
+                resolve(true);
+            }
+        };
+        
+        // Handle cancel button
+        customDialogCancelButton.onclick = () => {
+            customDialogModal.classList.add('hidden');
+            resolve(null);
+        };
+    });
+}
+
+function showCustomAlert(title, message) {
+    return showCustomDialog(title, message, 'alert');
+}
+
+function showCustomPrompt(title, message, defaultValue = '') {
+    return showCustomDialog(title, message, 'prompt', defaultValue);
+}
 
 // --- ADD RIPPLE EFFECT TO BUTTONS ---
 function addRippleEffectToButtons() {

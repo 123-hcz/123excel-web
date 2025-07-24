@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>123Excel II - Web (Pure JS)</title>
+    <title>123Excel II - Web </title>
 
     <!-- Using faster and more reliable CDNs -->
     <script src="https://unpkg.com/ag-grid-community/dist/ag-grid-community.min.js"></script>
@@ -17,7 +17,7 @@
 <body>
     <!-- Homepage UI -->
     <div id="open-file-page" class="page">
-        <h3>123Excel web v1.0.0-beta.2<a href="https://github.com/123-hcz/ZjangDataViewer">开源地址</a></h3>
+        <h3>123Excel web v1.0.0-beta.3<a href="https://github.com/123-hcz/ZjangDataViewer">开源地址</a></h3>
         <div class="open-file-left-panel">
             <button id="open-file-button-img" class="image-button" title="打开一个现有文件">
                 <img src="./images/classic/open.png" alt="Open" style="width: 700px; height: 200px;">
@@ -106,6 +106,23 @@
             <div class="ai-preview-buttons">
                 <button id="ai-preview-cancel-button">取消</button>
                 <button id="ai-preview-confirm-button">应用修改</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Custom Dialog Modal -->
+    <div id="custom-dialog-modal" class="hidden">
+        <div class="custom-dialog-content">
+            <div class="custom-dialog-header">
+                <span id="custom-dialog-title">提示</span>
+            </div>
+            <div class="custom-dialog-body">
+                <p id="custom-dialog-message"></p>
+                <input type="text" id="custom-dialog-input" class="hidden">
+            </div>
+            <div class="custom-dialog-buttons">
+                <button id="custom-dialog-cancel-button">取消</button>
+                <button id="custom-dialog-confirm-button">确定</button>
             </div>
         </div>
     </div>

@@ -70,7 +70,7 @@ const logic = {
         return this.readXmlFromString(xmlString);
     },
 
-    async getAiResponse(history, gridDataXml, onChunk, onDone) {
+    async getAiResponse(history, gridDataXml, onChunk, onDone, signal) {
         const apiKey = "sk-OTi0r196VHjX2iMgNaPevYrXSP4VKO4s2coOjIyPdXq02okY";
         const apiURL = "https://api.suanli.cn/v1/chat/completions";
 
@@ -98,6 +98,7 @@ XML的格式必须是 <root><row><col>...</col></row>...</root>，不要有<data
                     messages: messages,
                     stream: true, // Enable streaming
                 }),
+                signal, // Pass the abort signal to the fetch request
             });
 
             if (!response.ok) {
