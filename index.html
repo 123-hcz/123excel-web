@@ -93,5 +93,21 @@
             <button id="ai-chat-send-button">发送</button>
         </div>
     </div>
+    
+    <!-- AI Preview Modal -->
+    <div id="ai-preview-modal" class="hidden">
+        <div class="ai-preview-header">
+            <span>AI 表格修改预览</span>
+            <button id="ai-preview-close-button" class="close-button">×</button>
+        </div>
+        <div class="ai-preview-content">
+            <p>AI 建议对表格进行以下修改：</p>
+            <div id="ai-preview-grid" class="ag-theme-quartz" style="height: 300px; width: 100%;"></div>
+            <div class="ai-preview-buttons">
+                <button id="ai-preview-cancel-button">取消</button>
+                <button id="ai-preview-confirm-button">应用修改</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

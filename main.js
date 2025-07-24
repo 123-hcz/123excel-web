@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- STATE MANAGEMENT ---
     let currentFile = { name: "Untitled.xlsx", type: "xlsx", data: [] };
     let gridApi;
+    let previewGridApi; // For the AI preview modal
+    
 
     // --- DOM ELEMENT REFERENCES ---
     const pages = { openFile: document.getElementById('open-file-page'), editor: document.getElementById('editor-page') };
@@ -13,9 +15,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const aiChatSendButton = document.getElementById('ai-chat-send-button');
     const aiChatHistory = [];
     
+    // AI Preview Modal Elements
+    const aiPreviewModal = document.getElementById('ai-preview-modal');
+    const aiPreviewGridDiv = document.getElementById('ai-preview-grid');
+    const aiPreviewConfirmButton = document.getElementById('ai-preview-confirm-button');
+    const aiPreviewCancelButton = document.getElementById('ai-preview-cancel-button');
+    const aiPreviewCloseButton = document.getElementById('ai-preview-close-button');
+    
     // --- INITIALIZATION ---
     function initialize() {
         initializeGrid(); 
+        initializePreviewGrid(); // Initialize the preview grid
         setupEventListeners();
         showPage('openFile');
     }
@@ -40,6 +50,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const gridDiv = document.getElementById('main-grid');
         gridApi = agGrid.createGrid(gridDiv, gridOptions);
     }
+    
+    function initializePreviewGrid() {
+        const previewGridOptions = {
+            rowData: [],
+            columnDefs: [],
+            defaultColDef: { editable: false, resizable: true, sortable: true, filter: true },
+            domLayout: 'normal',
+        };
+        previewGridApi = agGrid.createGrid(aiPreviewGridDiv, previewGridOptions);
+    }
+    
     
     function updateGrid(data, fileName) {
         currentFile.name = fileName;
@@ -98,6 +119,11 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById('ai-chat-input').addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
         });
+        
+        // AI Preview Modal Event Listeners
+        aiPreviewConfirmButton.addEventListener('click', applyAiChanges);
+        aiPreviewCancelButton.addEventListener('click', hideAiPreview);
+        aiPreviewCloseButton.addEventListener('click', hideAiPreview);
     }
 
     function handleExit() {
@@ -305,11 +331,73 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- AI CHAT LOGIC ---
     function showAiChat(show) { aiChatModal.classList.toggle('hidden', !show); }
     
+    // --- AI PREVIEW MODAL LOGIC ---
+    function showAiPreview(data) {
+        // Convert data to grid format similar to updateGrid
+        const minRows = 10, minCols = 10;
+        const dataRows = data.length;
+        const dataCols = data.length > 0 ? Math.max(...data.map(row => (row ? row.length : 0))) : 0;
+        const finalRows = Math.max(dataRows, minRows);
+        const finalCols = Math.max(dataCols, minCols);
+        
+        const gridData = Array.from({ length: finalRows }, (_, r) => 
+            Array.from({ length: finalCols }, (_, c) => 
+                (data[r] && data[r][c] !== undefined) ? data[r][c] : ""
+            )
+        );
+
+        const columnDefs = [
+            { headerName: '#', width: 90, pinned: 'left', editable: false, valueGetter: 'node.rowIndex + 1', cellClass: 'row-number-cell' },
+            ...Array.from({ length: finalCols }, (_, i) => ({
+                headerName: String.fromCharCode(65 + i), field: i.toString(),
+            }))
+        ];
+        
+        const rowData = gridData.map(row => {
+            const rowObj = {};
+            row.forEach((cell, index) => { rowObj[index.toString()] = cell; });
+            return rowObj;
+        });
+
+        // Update preview grid
+        previewGridApi.setGridOption('columnDefs', columnDefs);
+        previewGridApi.setGridOption('rowData', rowData);
+        
+        // Show the preview modal
+        aiPreviewModal.classList.remove('hidden');
+    }
+    
+    function hideAiPreview() {
+        aiPreviewModal.classList.add('hidden');
+    }
+    
+    // Store the AI data to be applied
+    let pendingAiData = null;
+    
+    function applyAiChanges() {
+        if (pendingAiData) {
+            updateGrid(pendingAiData, currentFile.name);
+            renderSystemMessage('[提示]: 已根据AI的回复更新表格内容。');
+            pendingAiData = null;
+        }
+        hideAiPreview();
+    }
+    
+    // Track if this is the first AI response
+    let isFirstAiResponse = true;
+    
     async function sendAiMessage() {
         const userMessage = aiChatInput.value.trim();
         if (!userMessage) return;
         aiChatInput.value = '';
         aiChatSendButton.disabled = true;
+        
+        // Add the waiting message for the first AI response
+        if (isFirstAiResponse) {
+            renderSystemMessage('[提示]: AI回答可能需要排队一段时间，请耐心等待');
+            isFirstAiResponse = false;
+        }
+        
         aiChatHistory.push({ role: "user", content: userMessage });
         renderAiHistory();
         aiChatHistory.push({ role: "assistant", content: "" });
@@ -339,8 +427,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     if (contentMatch && contentMatch[1]) {
                         try {
                             const newData = logic.xmlStringToData(contentMatch[1]);
-                            updateGrid(newData, currentFile.name);
-                            renderSystemMessage('[提示]: 已根据AI的回复更新表格内容。');
+                            // Store the data and show preview instead of directly updating the grid
+                            pendingAiData = newData;
+                            showAiPreview(newData);
                         } catch(e) {
                             console.error("AI XML parse error", e);
                             renderSystemMessage('[错误]: AI返回的XML格式无效。');
