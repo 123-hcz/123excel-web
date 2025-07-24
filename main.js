@@ -28,6 +28,7 @@ document.addEventListener("DOMContentLoaded", () => {
         initializePreviewGrid(); // Initialize the preview grid
         setupEventListeners();
         showPage('openFile');
+        addRippleEffectToButtons(); // Add ripple effect to all buttons
     }
 
     // --- PAGE NAVIGATION & UI ---
@@ -496,3 +497,36 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- START THE APP ---
     initialize();
 });
+
+// --- ADD RIPPLE EFFECT TO BUTTONS ---
+function addRippleEffectToButtons() {
+    // Add ripple effect to all buttons
+    document.querySelectorAll('button, .image-button').forEach(button => {
+        button.addEventListener('click', function(e) {
+            // Create ripple element
+            const ripple = document.createElement('span');
+            ripple.classList.add('ripple');
+            
+            // Add ripple to button
+            this.appendChild(ripple);
+            
+            // Get button position and size
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            
+            // Position ripple at click location or center
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            // Set ripple size and position
+            ripple.style.width = ripple.style.height = `${size}px`;
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            
+            // Remove ripple after animation completes
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        });
+    });
+}
