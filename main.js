@@ -30,6 +30,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const customDialogConfirmButton = document.getElementById('custom-dialog-confirm-button');
     const customDialogCancelButton = document.getElementById('custom-dialog-cancel-button');
     
+    // Loading indicator
+    const loadingIndicator = document.getElementById('loading-indicator');
+    
     // --- INITIALIZATION ---
     function initialize() {
         initializeGrid(); 
@@ -41,8 +44,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- PAGE NAVIGATION & UI ---
     function showPage(pageName) {
-        Object.values(pages).forEach(p => p.classList.add('hidden'));
-        if (pages[pageName]) pages[pageName].classList.remove('hidden');
+        // Find the currently visible page
+        const currentPage = Object.values(pages).find(p => !p.classList.contains('hidden'));
+        
+        if (currentPage) {
+            // Add fade-out animation to current page
+            currentPage.classList.add('fade-out');
+            
+            // After the fade-out animation completes, hide the current page and show the new one
+            setTimeout(() => {
+                currentPage.classList.add('hidden');
+                currentPage.classList.remove('fade-out');
+                
+                if (pages[pageName]) {
+                    // Remove fade-in class if it exists (from previous transitions)
+                    pages[pageName].classList.remove('fade-in');
+                    // Show the target page
+                    pages[pageName].classList.remove('hidden');
+                    // Force a reflow to ensure the browser registers the element is visible
+                    pages[pageName].offsetHeight;
+                    // Add fade-in class for the animation
+                    pages[pageName].classList.add('fade-in');
+                    
+                    // Remove the fade-in class after the animation completes
+                    setTimeout(() => {
+                        pages[pageName].classList.remove('fade-in');
+                    }, 300); // This should match the CSS transition duration
+                }
+            }, 300); // This should match the CSS transition duration
+        } else {
+            // If no page is currently visible, just show the requested page
+            if (pages[pageName]) {
+                pages[pageName].classList.remove('hidden');
+            }
+        }
     }
 
     // --- GRID SETUP ---
@@ -152,8 +187,12 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!files || files.length === 0) return;
         const file = files[0]; // Get the first file from the FileList
         
+        // Show loading indicator
+        showLoadingIndicator();
+        
         // Add safety checks
         if (!file || !file.name) {
+            hideLoadingIndicator();
             await showCustomAlert('错误', '无法读取文件信息');
             return;
         }
@@ -169,9 +208,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (fileExt === 'xlsx') data = logic.readExcelFromBuffer(content);
                 else if (fileExt === 'xml') data = logic.readXmlFromString(content);
                 else if (fileExt === 'json') data = logic.readJsonFromString(content);
-                else { await showCustomAlert('错误', '不支持的文件类型'); return; }
+                else { 
+                    hideLoadingIndicator();
+                    await showCustomAlert('错误', '不支持的文件类型'); 
+                    return; 
+                }
                 updateGrid(data, currentFile.name);
-            } catch (err) { await showCustomAlert('错误', `读取文件失败: ${err.message}`); }
+                // Hide loading indicator after grid is updated
+                hideLoadingIndicator();
+            } catch (err) { 
+                hideLoadingIndicator();
+                await showCustomAlert('错误', `读取文件失败: ${err.message}`); 
+            }
         };
         if (fileExt === 'xlsx') reader.readAsArrayBuffer(file);
         else reader.readAsText(file);
@@ -211,9 +259,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function createNewFile(type) {
-        currentFile.type = type;
-        currentFile.name = `Untitled.${type}`;
-        updateGrid([], currentFile.name);
+        // Show loading indicator
+        showLoadingIndicator();
+        
+        // Use setTimeout to allow the UI to update before creating the file
+        setTimeout(() => {
+            currentFile.type = type;
+            currentFile.name = `Untitled.${type}`;
+            updateGrid([], currentFile.name);
+            // Hide loading indicator after grid is updated
+            hideLoadingIndicator();
+        }, 10);
     }
     
     function switchTab(tabName) {
@@ -340,7 +396,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- AI CHAT LOGIC ---
     function showAiChat(show) { 
-        aiChatModal.classList.toggle('hidden', !show); 
+        if (show) {
+            aiChatModal.classList.remove('hidden');
+        } else {
+            // Add fade-out animation
+            aiChatModal.style.opacity = '0';
+            aiChatModal.style.transform = 'translate(-50%, -50%) scale(0.8)';
+            setTimeout(() => {
+                aiChatModal.classList.add('hidden');
+                // Reset styles for next time
+                aiChatModal.style.opacity = '';
+                aiChatModal.style.transform = '';
+            }, 300); // This should match the CSS transition duration
+        }
         
         // Show notification when AI chat is opened
         if (show && isFirstAiResponse) {
@@ -380,12 +448,20 @@ document.addEventListener("DOMContentLoaded", () => {
         previewGridApi.setGridOption('columnDefs', columnDefs);
         previewGridApi.setGridOption('rowData', rowData);
         
-        // Show the preview modal
+        // Show the preview modal with animation
         aiPreviewModal.classList.remove('hidden');
     }
     
     function hideAiPreview() {
-        aiPreviewModal.classList.add('hidden');
+        // Add fade-out animation
+        aiPreviewModal.style.opacity = '0';
+        aiPreviewModal.style.transform = 'translate(-50%, -50%) scale(0.8)';
+        setTimeout(() => {
+            aiPreviewModal.classList.add('hidden');
+            // Reset styles for next time
+            aiPreviewModal.style.opacity = '';
+            aiPreviewModal.style.transform = '';
+        }, 300); // This should match the CSS transition duration
     }
     
     // Store the AI data to be applied
@@ -577,6 +653,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return data.slice(0, maxRow + 1).map(row => row.slice(0, maxCol + 1));
     }
     
+    // --- LOADING INDICATOR FUNCTIONS ---
+    function showLoadingIndicator() {
+        loadingIndicator.classList.remove('hidden');
+    }
+    
+    function hideLoadingIndicator() {
+        loadingIndicator.classList.add('hidden');
+    }
+    
     // --- START THE APP ---
     initialize();
 });
@@ -605,23 +690,35 @@ function showCustomDialog(title, message, type = 'alert', defaultValue = '') {
             customDialogInput.classList.add('hidden');
         }
         
-        // Show dialog
+        // Show dialog with animation
         customDialogModal.classList.remove('hidden');
         
         // Handle confirm button
         customDialogConfirmButton.onclick = () => {
-            customDialogModal.classList.add('hidden');
-            if (type === 'prompt') {
-                resolve(customDialogInput.value);
-            } else {
-                resolve(true);
-            }
+            // Add fade-out animation
+            customDialogModal.style.opacity = '0';
+            setTimeout(() => {
+                customDialogModal.classList.add('hidden');
+                // Reset styles for next time
+                customDialogModal.style.opacity = '';
+                if (type === 'prompt') {
+                    resolve(customDialogInput.value);
+                } else {
+                    resolve(true);
+                }
+            }, 300); // This should match the CSS transition duration
         };
         
         // Handle cancel button
         customDialogCancelButton.onclick = () => {
-            customDialogModal.classList.add('hidden');
-            resolve(null);
+            // Add fade-out animation
+            customDialogModal.style.opacity = '0';
+            setTimeout(() => {
+                customDialogModal.classList.add('hidden');
+                // Reset styles for next time
+                customDialogModal.style.opacity = '';
+                resolve(null);
+            }, 300); // This should match the CSS transition duration
         };
     });
 }
