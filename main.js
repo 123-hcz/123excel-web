@@ -35,6 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
             rowSelection: 'multiple',
             rowMultiSelectWithClick: true,
             onSelectionChanged: updateStatusBar,
+            onCellValueChanged: updateCurrentFileData,
         };
         const gridDiv = document.getElementById('main-grid');
         gridApi = agGrid.createGrid(gridDiv, gridOptions);
@@ -111,8 +112,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // --- FILE HANDLING ---
-    function handleFileSelect(file) {
-        if (!file) return;
+    function handleFileSelect(files) {
+        if (!files || files.length === 0) return;
+        const file = files[0]; // Get the first file from the FileList
+        
+        // Add safety checks
+        if (!file || !file.name) {
+            alert("无法读取文件信息");
+            return;
+        }
+        
         currentFile.name = file.name;
         const fileExt = file.name.split('.').pop().toLowerCase();
         currentFile.type = fileExt;
@@ -183,7 +192,32 @@ document.addEventListener("DOMContentLoaded", () => {
         const itemChoice = document.getElementById('item-choice');
         const items = logic.getItems(currentFile.data, itemRowInput.value);
         
+        // Debug: Log the items being used to update the choice
+        console.log("Updating item choice with items:", items);
+        console.log("Current file data:", currentFile.data);
+        console.log("Item row input value:", itemRowInput.value);
+        
         itemChoice.innerHTML = '';
+        
+        // If no items or empty items array, add a placeholder option
+        if (!items || items.length === 0) {
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = '请先加载数据文件';
+            placeholder.disabled = true;
+            placeholder.selected = true;
+            itemChoice.appendChild(placeholder);
+            return;
+        }
+        
+        // Add a default placeholder option
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- 请选择项目 --';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        itemChoice.appendChild(defaultOption);
+        
         items.forEach(item => {
             if (item) {
                 const option = document.createElement('option');
@@ -254,6 +288,18 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             statusBar.textContent = "在选中的行中未找到数字";
         }
+    }
+
+    // --- UPDATE CURRENT FILE DATA ---
+    function updateCurrentFileData() {
+        // Get the current data from the grid
+        const data = getGridData();
+        // Update the currentFile.data with the latest grid data
+        currentFile.data = data;
+        // Update the item choice dropdown to reflect the new data
+        updateItemChoice();
+        // Debug: Log the updated data
+        console.log("Data updated:", currentFile.data);
     }
 
     // --- AI CHAT LOGIC ---

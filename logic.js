@@ -151,7 +151,14 @@ XML的格式必须是 <root><row><col>...</col></row>...</root>，不要有<data
 
     getNames(data, itemRow, nameCol) {
         itemRow = parseInt(itemRow, 10) - 1;
-        nameCol = parseInt(nameCol, 10) - 1;
+        // Convert column letter to number if needed
+        if (typeof nameCol === 'string' && /^[A-Z]+$/i.test(nameCol)) {
+            nameCol = this.columnLetterToNumber(nameCol.toUpperCase());
+        } else {
+            nameCol = parseInt(nameCol, 10);
+        }
+        nameCol = nameCol - 1;
+        
         const names = [];
         data.forEach(row => {
             if (row && row.length > nameCol) {
@@ -167,7 +174,13 @@ XML的格式必须是 <root><row><col>...</col></row>...</root>，不要有<data
     getValue(data, itemRow, nameCol, itemName) {
         const items = this.getItems(data, itemRow);
         itemRow = parseInt(itemRow, 10) - 1;
-        nameCol = parseInt(nameCol, 10) - 1;
+        // Convert column letter to number if needed
+        if (typeof nameCol === 'string' && /^[A-Z]+$/i.test(nameCol)) {
+            nameCol = this.columnLetterToNumber(nameCol.toUpperCase());
+        } else {
+            nameCol = parseInt(nameCol, 10);
+        }
+        nameCol = nameCol - 1;
         
         const itemIndex = items.indexOf(itemName);
         if (itemIndex === -1) {
@@ -183,6 +196,15 @@ XML的格式必须是 <root><row><col>...</col></row>...</root>，不要有<data
             }
         });
         return values.slice(itemRow + 1);
+    },
+
+    // Helper function to convert Excel column letters to numbers (A=1, B=2, ..., Z=26, AA=27, ...)
+    columnLetterToNumber(letter) {
+        let result = 0;
+        for (let i = 0; i < letter.length; i++) {
+            result = result * 26 + (letter.charCodeAt(i) - 'A'.charCodeAt(0) + 1);
+        }
+        return result;
     },
 
     getNameValueDict(names, values) {
