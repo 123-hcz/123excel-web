@@ -418,22 +418,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 aiChatSendButton.disabled = false;
                 aiChatInput.focus();
 
-                // FINAL AI FIX: Find the LAST ```xml block.
-                const allXmlBlocks = fullResponse.match(/```xml\s*[\s\S]+?\s*```/g);
-                if (allXmlBlocks && allXmlBlocks.length > 0) {
-                    const lastBlock = allXmlBlocks[allXmlBlocks.length - 1];
-                    const contentMatch = lastBlock.match(/```xml\s*([\s\S]+?)\s*```/);
-                    
-                    if (contentMatch && contentMatch[1]) {
-                        try {
-                            const newData = logic.xmlStringToData(contentMatch[1]);
-                            // Store the data and show preview instead of directly updating the grid
-                            pendingAiData = newData;
-                            showAiPreview(newData);
-                        } catch(e) {
-                            console.error("AI XML parse error", e);
-                            renderSystemMessage('[错误]: AI返回的XML格式无效。');
-                        }
+                // Find all ```xml blocks and get the last complete one
+                const xmlBlockRegex = /```xml\s*([\s\S]*?)\s*```/g;
+                let match;
+                let lastValidXmlContent = null;
+                
+                // Iterate through all matches to find the last valid one
+                while ((match = xmlBlockRegex.exec(fullResponse)) !== null) {
+                    if (match[1]) {
+                        lastValidXmlContent = match[1];
+                    }
+                }
+                
+                if (lastValidXmlContent) {
+                    try {
+                        const newData = logic.xmlStringToData(lastValidXmlContent);
+                        // Store the data and show preview instead of directly updating the grid
+                        pendingAiData = newData;
+                        showAiPreview(newData);
+                    } catch(e) {
+                        console.error("AI XML parse error", e);
+                        renderSystemMessage('[错误]: AI返回的XML格式无效。');
                     }
                 }
             }
